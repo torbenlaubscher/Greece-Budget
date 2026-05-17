@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Greece Trip — Budget Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #161616;
+    --bg3: #1e1e1e;
+    --border: #2a2a2a;
+    --border2: #333;
+    --text: #f0ede8;
+    --text2: #999;
+    --text3: #555;
+    --accent: #c9a84c;
+    --accent2: #e8c97a;
+    --green: #4caf82;
+    --red: #e05c5c;
+    --orange: #e0904a;
+    --blue: #5c9ee0;
+    --radius: 8px;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Fraunces', Georgia, serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--bg2); border-right: 1px solid var(--border); padding: 24px 20px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .main { padding: 28px 28px 60px; overflow-y: auto; }
+
+  /* Sidebar */
+  .logo { font-family: var(--serif); font-size: 22px; font-weight: 300; color: var(--accent); margin-bottom: 4px; letter-spacing: -0.3px; }
+  .logo span { font-style: italic; }
+  .logo-sub { font-size: 10px; color: var(--text3); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 28px; }
+  .sidebar-section { margin-bottom: 28px; }
+  .sidebar-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); margin-bottom: 12px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 5px; }
+  .field input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 7px 10px; outline: none; transition: border-color 0.15s; }
+  .field input:focus { border-color: var(--accent); }
+  .field input[type="date"] { color-scheme: dark; }
+  .field .hint { font-size: 10px; color: var(--text3); margin-top: 3px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* Metrics */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .metrics-row2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+  .metric { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; position: relative; overflow: hidden; }
+  .metric::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.5; }
+  .metric.green::before { background: var(--green); }
+  .metric.red::before { background: var(--red); }
+  .metric.orange::before { background: var(--orange); }
+  .metric.blue::before { background: var(--blue); }
+  .metric-label { font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+  .metric-val { font-family: var(--serif); font-size: 26px; font-weight: 300; color: var(--text); }
+  .metric-val.pos { color: var(--green); }
+  .metric-val.neg { color: var(--red); }
+  .metric-val.warn { color: var(--orange); }
+
+  /* Page header */
+  .page-title { font-family: var(--serif); font-size: 28px; font-weight: 300; color: var(--text); margin-bottom: 4px; letter-spacing: -0.5px; }
+  .page-title em { font-style: italic; color: var(--accent); }
+  .page-sub { font-size: 11px; color: var(--text3); margin-bottom: 28px; letter-spacing: 0.05em; }
+
+  /* Cards */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; }
+  .card-title { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text3); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* Expense rows */
+  .col-heads { display: grid; gap: 6px 8px; font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .col-heads-exp { grid-template-columns: 1fr 90px 100px 28px; }
+  .col-heads-trip { grid-template-columns: 1fr 100px 28px; }
+  .col-heads span:not(:first-child) { text-align: right; }
+  .col-heads span:last-child { text-align: center; }
+
+  .exp-row { display: grid; gap: 6px 8px; align-items: center; margin-bottom: 6px; }
+  .exp-row-4 { grid-template-columns: 1fr 90px 100px 28px; }
+  .exp-row-3 { grid-template-columns: 1fr 100px 28px; }
+
+  .exp-row input[type="text"],
+  .exp-row input[type="number"] { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 6px 9px; outline: none; width: 100%; transition: border-color 0.15s; }
+  .exp-row input[type="number"] { text-align: right; }
+  .exp-row input:focus { border-color: var(--accent); }
+  .exp-row select { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; color: var(--text2); font-family: var(--mono); font-size: 12px; padding: 6px 7px; outline: none; width: 100%; cursor: pointer; }
+  .exp-row select:focus { border-color: var(--accent); }
+
+  .del-btn { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--text3); font-size: 16px; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .del-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .add-btn { background: none; border: 1px dashed var(--border2); border-radius: 5px; color: var(--text3); font-family: var(--mono); font-size: 11px; padding: 7px 12px; cursor: pointer; letter-spacing: 0.05em; transition: all 0.15s; margin-top: 6px; }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .row-total { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); }
+  .row-total strong { font-family: var(--serif); font-size: 16px; color: var(--text); font-weight: 300; }
+
+  /* Sync button */
+  .sync-btn { background: var(--bg3); border: 1px solid var(--border2); border-radius: 5px; color: var(--text2); font-family: var(--mono); font-size: 11px; padding: 6px 12px; cursor: pointer; letter-spacing: 0.05em; transition: all 0.15s; margin-bottom: 14px; }
+  .sync-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* Gap box */
+  .gap-box { border-radius: var(--radius); padding: 14px 16px; margin-top: 14px; border: 1px solid; }
+  .gap-box.ok { background: rgba(76,175,130,0.06); border-color: rgba(76,175,130,0.25); }
+  .gap-box.bad { background: rgba(224,92,92,0.06); border-color: rgba(224,92,92,0.25); }
+  .gap-box .gap-label { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  .gap-box .gap-val { font-family: var(--serif); font-size: 22px; font-weight: 300; }
+  .gap-box.ok .gap-val { color: var(--green); }
+  .gap-box.bad .gap-val { color: var(--red); }
+  .gap-box .gap-note { font-size: 11px; color: var(--text2); margin-top: 5px; }
+
+  /* Chart + table */
+  .chart-wrap { position: relative; height: 240px; margin-bottom: 0; }
+  .chart-grid { display: grid; grid-template-columns: 1fr 170px; gap: 20px; align-items: start; }
+  .proj-table { font-size: 11px; }
+  .pt-head { display: grid; grid-template-columns: 1fr 1fr; font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 6px; }
+  .pt-head span:last-child { text-align: right; }
+  .proj-row { display: grid; grid-template-columns: 1fr 1fr; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .proj-row:last-child { border: none; }
+  .proj-row .pdate { color: var(--text2); font-size: 11px; }
+  .proj-row .pamt { text-align: right; font-size: 11px; font-weight: 500; }
+  .proj-row .pamt.pos { color: var(--green); }
+  .proj-row .pamt.neg { color: var(--red); }
+  .proj-row.dep-row { background: rgba(201,168,76,0.08); border-radius: 4px; padding: 4px 6px; border: none; margin-bottom: 2px; }
+  .proj-row.dep-row .pdate { color: var(--accent); }
+  .proj-row.dep-row .pamt { color: var(--accent); }
+
+  /* Save indicator */
+  .save-indicator { position: fixed; bottom: 20px; right: 24px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 20px; padding: 6px 14px; font-size: 11px; color: var(--text3); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .save-indicator.show { opacity: 1; }
+
+  /* Two-col layout for cards */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* Export/Import */
+  .data-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+  .data-btn { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text2); font-family: var(--mono); font-size: 11px; padding: 8px 6px; cursor: pointer; text-align: center; transition: all 0.15s; letter-spacing: 0.04em; }
+  .data-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .data-btn.import:hover { border-color: var(--blue); color: var(--blue); }
+  #import-input { display: none; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">Greece <span>Trip</span></div>
+    <div class="logo-sub">Budget Tracker</div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Trip dates</div>
+      <div class="field">
+        <label>Departure date</label>
+        <input type="date" id="departure-date" value="2026-09-15" />
+      </div>
+      <div class="field">
+        <label>Return date</label>
+        <input type="date" id="return-date" value="2026-10-06" />
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Income</div>
+      <div class="field">
+        <label>Current savings balance</label>
+        <input type="number" id="current-savings" value="0" min="0" step="100" />
+      </div>
+      <div class="field">
+        <label>Fortnightly take-home</label>
+        <input type="number" id="ft-income" value="3098" min="0" step="50" />
+        <div class="hint">= ~$1,549/week</div>
+      </div>
+      <div class="field">
+        <label>First pay date</label>
+        <input type="date" id="first-pay-date" />
+        <div class="hint" id="first-pay-hint">Income only counted from this date</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Leave balance</div>
+      <div class="field">
+        <label>Hours of leave accrued</label>
+        <input type="number" id="leave-hours" value="0" min="0" step="0.5" />
+        <div class="hint" id="leave-hint">Enter your fortnightly income to calculate</div>
+      </div>
+      <div class="field">
+        <label>Hourly rate (auto-calculated)</label>
+        <input type="number" id="hourly-rate" placeholder="or enter manually" min="0" step="0.5" />
+        <div class="hint">Fortnightly ÷ 76hrs = hourly rate</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Data</div>
+      <div class="data-btns">
+        <button class="data-btn" onclick="exportData()">↓ Export</button>
+        <button class="data-btn import" onclick="document.getElementById('import-input').click()">↑ Import</button>
+      </div>
+      <input type="file" id="import-input" accept=".json" onchange="importData(event)" />
+      <div class="hint" style="margin-top:8px;">Export to transfer between devices. AirDrop the .json to your iPad then import.</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <h1 class="page-title">Trip to <em>Greece</em></h1>
+    <p class="page-sub">All data saves automatically in your browser — inputs persist between sessions.</p>
+
+    <!-- Metrics row 1 -->
+    <div class="metrics">
+      <div class="metric blue">
+        <div class="metric-label">Weeks to departure</div>
+        <div class="metric-val" id="m-weeks">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Projected income</div>
+        <div class="metric-val" id="m-income">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Pre-dep. expenses</div>
+        <div class="metric-val" id="m-exp">—</div>
+      </div>
+    </div>
+    <!-- Metrics row 2 -->
+    <div class="metrics-row2">
+      <div class="metric">
+        <div class="metric-label">Net savings (excl. leave &amp; trip)</div>
+        <div class="metric-val" id="m-net">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">After trip spending</div>
+        <div class="metric-val" id="m-after-trip">—</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">net savings − trip spend</div>
+      </div>
+      <div class="metric orange">
+        <div class="metric-label">Leave balance value</div>
+        <div class="metric-val warn" id="m-leave">—</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;" id="m-leave-sub">— hrs @ —/hr</div>
+      </div>
+    </div>
+
+    <!-- Two col: Pre-departure expenses + Trip spending -->
+    <div class="two-col">
+      <!-- Pre-departure expenses -->
+      <div class="card">
+        <div class="card-title">Pre-departure expenses</div>
+        <div class="col-heads col-heads-exp">
+          <span>Name</span><span>Amount</span><span>Frequency</span><span></span>
+        </div>
+        <div id="pre-expenses-list"></div>
+        <button class="add-btn" onclick="addPreExpense()">+ Add expense</button>
+        <div class="row-total">
+          <span>Weekly total</span>
+          <strong id="pre-weekly-total">$0 / wk</strong>
+        </div>
+      </div>
+
+      <!-- Trip spending -->
+      <div class="card">
+        <div class="card-title">Trip spending</div>
+        <div class="col-heads col-heads-trip">
+          <span>Item</span><span>Amount</span><span></span>
+        </div>
+        <div id="trip-list"></div>
+        <button class="add-btn" onclick="addTripItem()">+ Add item</button>
+        <div class="row-total">
+          <span>Total trip cost</span>
+          <strong id="trip-total">$0</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- While away expenses -->
+    <div class="card">
+      <div class="card-title">While away — ongoing expenses</div>
+      <button class="sync-btn" onclick="syncAwayFromPre()">↺ Re-sync from pre-departure list</button>
+      <div class="col-heads col-heads-exp">
+        <span>Name</span><span>Amount</span><span>Frequency</span><span></span>
+      </div>
+      <div id="away-expenses-list"></div>
+      <button class="add-btn" onclick="addAwayExpense()">+ Add expense</button>
+      <div class="row-total">
+        <span>Total while away (<span id="trip-weeks-label">—</span> weeks)</span>
+        <strong id="away-total">$0</strong>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card">
+      <div class="card-title" id="chart-title">Savings projection</div>
+      <div class="chart-grid">
+        <div class="chart-wrap">
+          <canvas id="savingsChart"></canvas>
+        </div>
+        <div class="proj-table">
+          <div class="pt-head"><span>Date</span><span>Balance</span></div>
+          <div id="proj-rows"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="save-indicator" id="save-indicator">Saved ✓</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+const defaultPreExpenses = [
+  { name: 'Rent', amount: 0, freq: 'weekly' },
+  { name: 'Household expenses', amount: 0, freq: 'weekly' },
+  { name: 'Groceries', amount: 0, freq: 'weekly' },
+  { name: 'Health insurance', amount: 0, freq: 'monthly' },
+  { name: 'Phone', amount: 0, freq: 'monthly' },
+  { name: 'Gym', amount: 0, freq: 'monthly' },
+  { name: 'Golf', amount: 0, freq: 'monthly' },
+];
+const defaultTrip = [
+  { name: 'Flights', amount: 0 },
+  { name: 'Accommodation', amount: 0 },
+  { name: 'Spending money', amount: 0 },
+];
+
+let preExpenses = [];
+let awayExpenses = [];
+let tripItems = [];
+let nextId = 5000;
+let chart = null;
+let saveTimer = null;
+
+// ─── Persist ──────────────────────────────────────────────────────────────────
+function saveState() {
+  const state = {
+    preExpenses, awayExpenses, tripItems, nextId,
+    settings: {
+      'departure-date': document.getElementById('departure-date').value,
+      'return-date': document.getElementById('return-date').value,
+      'current-savings': document.getElementById('current-savings').value,
+      'ft-income': document.getElementById('ft-income').value,
+      'first-pay-date': document.getElementById('first-pay-date').value,
+      'leave-hours': document.getElementById('leave-hours').value,
+      'hourly-rate': document.getElementById('hourly-rate').value,
+    }
+  };
+  localStorage.setItem('greece_budget_v1', JSON.stringify(state));
+  showSaved();
+}
+
+function loadState() {
+  const raw = localStorage.getItem('greece_budget_v1');
+  if (!raw) {
+    preExpenses = defaultPreExpenses.map((e, i) => ({ ...e, id: i }));
+    awayExpenses = defaultPreExpenses.map((e, i) => ({ ...e, id: 1000 + i }));
+    tripItems = defaultTrip.map((t, i) => ({ ...t, id: 2000 + i }));
+    nextId = 5000;
+    return;
+  }
+  try {
+    const s = JSON.parse(raw);
+    preExpenses = s.preExpenses || [];
+    awayExpenses = s.awayExpenses || [];
+    tripItems = s.tripItems || [];
+    nextId = s.nextId || 5000;
+    if (s.settings) {
+      Object.entries(s.settings).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      });
+    }
+  } catch(e) {
+    preExpenses = defaultPreExpenses.map((e, i) => ({ ...e, id: i }));
+    awayExpenses = defaultPreExpenses.map((e, i) => ({ ...e, id: 1000 + i }));
+    tripItems = defaultTrip.map((t, i) => ({ ...t, id: 2000 + i }));
+  }
+}
+
+function showSaved() {
+  const el = document.getElementById('save-indicator');
+  el.classList.add('show');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function debouncedSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 600);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function getVal(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function getDate(id) {
+  const raw = document.getElementById(id).value;
+  if (!raw) return null;
+  const [y, m, d] = raw.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function weeklyAmt(e) {
+  if (e.freq === 'weekly') return e.amount;
+  if (e.freq === 'fortnightly') return e.amount / 2;
+  if (e.freq === 'monthly') return e.amount * 12 / 52;
+  return 0;
+}
+function getTripTotal() { return tripItems.reduce((s, t) => s + (t.amount || 0), 0); }
+function getTripWeeks() {
+  const dep = getDate('departure-date'), ret = getDate('return-date');
+  if (!dep || !ret) return 3;
+  return Math.max(0, (ret - dep) / 604800000);
+}
+function fmt(val) { return (val < 0 ? '-$' : '$') + Math.abs(Math.round(val)).toLocaleString(); }
+
+// ─── Expense rendering ────────────────────────────────────────────────────────
+function makeExpRow(e, list) {
+  const row = document.createElement('div');
+  row.className = 'exp-row exp-row-4';
+  row.innerHTML = `
+    <input type="text" value="${e.name}" placeholder="Name" data-id="${e.id}" data-field="name" />
+    <input type="number" value="${e.amount || ''}" placeholder="0" min="0" step="5" data-id="${e.id}" data-field="amount" />
+    <select data-id="${e.id}" data-field="freq">
+      <option value="weekly" ${e.freq==='weekly'?'selected':''}>Weekly</option>
+      <option value="fortnightly" ${e.freq==='fortnightly'?'selected':''}>Fortnightly</option>
+      <option value="monthly" ${e.freq==='monthly'?'selected':''}>Monthly</option>
+      <option value="once" ${e.freq==='once'?'selected':''}>One-off</option>
+    </select>
+    <button class="del-btn" data-id="${e.id}" title="Remove">×</button>
+  `;
+  row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', ev => {
+    const id = parseInt(ev.target.dataset.id), field = ev.target.dataset.field;
+    const exp = list.find(x => x.id === id);
+    if (!exp) return;
+    exp[field] = field === 'amount' ? parseFloat(ev.target.value) || 0 : ev.target.value;
+    recalc(); debouncedSave();
+  }));
+  row.querySelector('.del-btn').addEventListener('click', ev => {
+    const id = parseInt(ev.currentTarget.dataset.id);
+    if (list === preExpenses) preExpenses = preExpenses.filter(x => x.id !== id);
+    else awayExpenses = awayExpenses.filter(x => x.id !== id);
+    renderAll(); recalc(); debouncedSave();
+  });
+  return row;
+}
+
+function makeTripRow(t) {
+  const row = document.createElement('div');
+  row.className = 'exp-row exp-row-3';
+  row.innerHTML = `
+    <input type="text" value="${t.name}" placeholder="Item name" data-id="${t.id}" data-field="name" />
+    <input type="number" value="${t.amount || ''}" placeholder="0" min="0" step="50" data-id="${t.id}" data-field="amount" />
+    <button class="del-btn" data-id="${t.id}" title="Remove">×</button>
+  `;
+  row.querySelectorAll('input').forEach(el => el.addEventListener('input', ev => {
+    const id = parseInt(ev.target.dataset.id), field = ev.target.dataset.field;
+    const item = tripItems.find(x => x.id === id);
+    if (!item) return;
+    item[field] = field === 'amount' ? parseFloat(ev.target.value) || 0 : ev.target.value;
+    recalc(); debouncedSave();
+  }));
+  row.querySelector('.del-btn').addEventListener('click', ev => {
+    tripItems = tripItems.filter(x => x.id !== parseInt(ev.currentTarget.dataset.id));
+    renderTripItems(); recalc(); debouncedSave();
+  });
+  return row;
+}
+
+function updatePreWeeklyTotal() {
+  const wkly = preExpenses.reduce((s, e) => s + weeklyAmt(e), 0);
+  document.getElementById('pre-weekly-total').textContent = fmt(wkly) + ' / wk';
+}
+
+function renderPreExpenses() {
+  const list = document.getElementById('pre-expenses-list');
+  list.innerHTML = '';
+  preExpenses.forEach(e => list.appendChild(makeExpRow(e, preExpenses)));
+  updatePreWeeklyTotal();
+}
+
+function renderAwayExpenses() {
+  const list = document.getElementById('away-expenses-list');
+  list.innerHTML = '';
+  awayExpenses.forEach(e => list.appendChild(makeExpRow(e, awayExpenses)));
+}
+
+function renderTripItems() {
+  const list = document.getElementById('trip-list');
+  list.innerHTML = '';
+  tripItems.forEach(t => list.appendChild(makeTripRow(t)));
+  document.getElementById('trip-total').textContent = fmt(getTripTotal());
+}
+
+function renderAll() {
+  renderPreExpenses();
+  renderAwayExpenses();
+  renderTripItems();
+}
+
+// ─── Add actions ──────────────────────────────────────────────────────────────
+function addPreExpense() {
+  preExpenses.push({ id: nextId++, name: '', amount: 0, freq: 'weekly' });
+  renderPreExpenses(); recalc(); debouncedSave();
+}
+function addAwayExpense() {
+  awayExpenses.push({ id: nextId++, name: '', amount: 0, freq: 'weekly' });
+  renderAwayExpenses(); recalc(); debouncedSave();
+}
+function addTripItem() {
+  tripItems.push({ id: nextId++, name: '', amount: 0 });
+  renderTripItems(); recalc(); debouncedSave();
+}
+function syncAwayFromPre() {
+  awayExpenses = preExpenses.map(e => ({ ...e, id: nextId++ }));
+  renderAwayExpenses(); recalc(); debouncedSave();
+}
+
+// ─── Recalc ───────────────────────────────────────────────────────────────────
+function recalc() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = getDate('departure-date') || new Date(2026, 8, 15);
+  const returnDate = getDate('return-date');
+  if (target <= today) return;
+
+  const tripWeeks = getTripWeeks();
+  const totalDays = Math.round((target - today) / 86400000);
+  const totalWeeks = totalDays / 7;
+  const ftIncome = getVal('ft-income');
+  const weeklyIncome = ftIncome / 2;
+  const currentSavings = getVal('current-savings');
+  const tripSpend = getTripTotal();
+  const firstPayDate = getDate('first-pay-date');
+
+  // How many weeks of income actually land before departure
+  const incomeStartDate = firstPayDate && firstPayDate > today ? firstPayDate : today;
+  const payableWeeks = Math.max(0, (target - incomeStartDate) / 604800000);
+
+  // Update first pay hint
+  const hint = document.getElementById('first-pay-hint');
+  if (firstPayDate && firstPayDate > today) {
+    const weeksUntilPay = Math.round((firstPayDate - today) / 604800000 * 10) / 10;
+    hint.textContent = `${weeksUntilPay}w until first pay — income starts then`;
+  } else if (firstPayDate) {
+    hint.textContent = 'First pay already received — counting from today';
+  } else {
+    hint.textContent = 'Leave blank to count income from today';
+  }
+
+  // Leave value calculation
+  const leaveHours = getVal('leave-hours');
+  // Auto-calculate hourly rate from fortnightly pay (÷ 76hrs standard fortnight)
+  // but allow manual override
+  const manualRate = getVal('hourly-rate');
+  const autoRate = ftIncome > 0 ? ftIncome / 76 : 0;
+  const hourlyRate = manualRate > 0 ? manualRate : autoRate;
+  const leaveValue = leaveHours * hourlyRate;
+
+  // Update hourly rate field hint and auto-fill if not manually set
+  const leaveHint = document.getElementById('leave-hint');
+  if (hourlyRate > 0) {
+    leaveHint.textContent = `= ${fmt(leaveValue)} leave value`;
+  } else {
+    leaveHint.textContent = 'Enter fortnightly income or hourly rate';
+  }
+  if (manualRate === 0 && autoRate > 0) {
+    document.getElementById('hourly-rate').placeholder = `$${autoRate.toFixed(2)}/hr (auto)`;
+  }
+
+  // Chart data — starts from first pay date (or today if no date set)
+  const labels = [], data = [];
+  let running = currentSavings;
+  let d = new Date(incomeStartDate);
+  while (d <= target) {
+    if (d < target) {
+      running += weeklyIncome;
+      preExpenses.forEach(e => {
+        if (e.freq === 'weekly') running -= e.amount;
+        else if (e.freq === 'fortnightly') running -= e.amount / 2;
+        else if (e.freq === 'monthly') running -= e.amount * 12 / 52;
+        else if (e.freq === 'once') running -= e.amount;
+      });
+    }
+    labels.push(d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }));
+    data.push(Math.round(running));
+    d = new Date(d.getTime() + 7 * 86400000);
+  }
+
+  // Net savings = final value of the chart (what's actually left after weekly accumulation)
+  const projNet = data[data.length - 1];
+  const afterTrip = projNet - tripSpend;
+
+  // Metrics
+  document.getElementById('m-weeks').textContent = Math.round(totalWeeks);
+  document.getElementById('m-income').textContent = fmt(weeklyIncome * payableWeeks + currentSavings);
+  const onceExp = preExpenses.filter(e => e.freq === 'once').reduce((s, e) => s + e.amount, 0);
+  const recurringExp = preExpenses.filter(e => e.freq !== 'once').reduce((s, e) => s + weeklyAmt(e) * totalWeeks, 0);
+  document.getElementById('m-exp').textContent = fmt(recurringExp + onceExp);
+
+  const netEl = document.getElementById('m-net');
+  netEl.textContent = fmt(projNet);
+  netEl.className = 'metric-val ' + (projNet >= 0 ? 'pos' : 'neg');
+
+  const afterEl = document.getElementById('m-after-trip');
+  afterEl.textContent = fmt(afterTrip);
+  afterEl.className = 'metric-val ' + (afterTrip >= 0 ? 'pos' : 'neg');
+
+  document.getElementById('m-leave').textContent = leaveValue > 0 ? fmt(leaveValue) : '—';
+  document.getElementById('m-leave-sub').textContent = leaveHours > 0 && hourlyRate > 0
+    ? `${leaveHours}hrs @ $${hourlyRate.toFixed(2)}/hr`
+    : 'enter hours in sidebar';
+
+  updatePreWeeklyTotal();
+
+  // Away total
+  const awayTotal = awayExpenses.filter(e => e.freq !== 'once').reduce((s, e) => s + weeklyAmt(e) * tripWeeks, 0);
+  document.getElementById('away-total').textContent = fmt(awayTotal);
+  document.getElementById('trip-weeks-label').textContent = Math.round(tripWeeks * 10) / 10;
+
+  // Chart title
+  const depLabel = target.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+  document.getElementById('chart-title').textContent = `Savings projection — today to ${depLabel}`;
+
+  renderProjectionTable(labels, data);
+  buildChart(labels, data);
+}
+
+function renderProjectionTable(labels, data) {
+  const container = document.getElementById('proj-rows');
+  container.innerHTML = '';
+  const n = labels.length, step = Math.max(1, Math.floor(n / 9));
+  const indices = [];
+  for (let i = 0; i < n; i += step) indices.push(i);
+  if (!indices.includes(n - 1)) indices.push(n - 1);
+  indices.forEach(i => {
+    const row = document.createElement('div');
+    const isDep = i === n - 1;
+    row.className = 'proj-row' + (isDep ? ' dep-row' : '');
+    const val = data[i];
+    row.innerHTML = `<span class="pdate">${isDep ? '✈ ' : ''}${labels[i]}</span><span class="pamt ${!isDep ? (val >= 0 ? 'pos' : 'neg') : ''}">${fmt(val)}</span>`;
+    container.appendChild(row);
+  });
+}
+
+function buildChart(labels, data) {
+  if (chart) chart.destroy();
+  const ctx = document.getElementById('savingsChart').getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+  gradient.addColorStop(0, 'rgba(201,168,76,0.15)');
+  gradient.addColorStop(1, 'rgba(201,168,76,0)');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Savings',
+        data,
+        borderColor: '#c9a84c',
+        backgroundColor: gradient,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        borderWidth: 1.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e1e1e',
+          borderColor: '#333',
+          borderWidth: 1,
+          titleColor: '#999',
+          bodyColor: '#f0ede8',
+          bodyFont: { family: "'DM Mono', monospace", size: 12 },
+          callbacks: { label: c => fmt(c.parsed.y) }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0, font: { family: "'DM Mono'", size: 10 }, color: '#555' },
+          grid: { display: false },
+          border: { color: '#2a2a2a' }
+        },
+        y: {
+          ticks: { callback: v => fmt(v), font: { family: "'DM Mono'", size: 10 }, color: '#555' },
+          grid: { color: '#1e1e1e' },
+          border: { color: '#2a2a2a' }
+        }
+      }
+    }
+  });
+}
+
+// ─── Export / Import ──────────────────────────────────────────────────────────
+function exportData() {
+  saveState();
+  const raw = localStorage.getItem('greece_budget_v1');
+  if (!raw) return;
+  const blob = new Blob([raw], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const today = new Date().toISOString().slice(0, 10);
+  a.download = `greece-budget-${today}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  const ind = document.getElementById('save-indicator');
+  ind.textContent = 'Exported ✓';
+  ind.classList.add('show');
+  setTimeout(() => { ind.classList.remove('show'); ind.textContent = 'Saved ✓'; }, 2000);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Validate it looks like our data
+      if (!parsed.preExpenses || !parsed.awayExpenses || !parsed.tripItems) {
+        alert('This doesn\'t look like a valid budget export file.');
+        return;
+      }
+      localStorage.setItem('greece_budget_v1', e.target.result);
+      // Reload state into UI
+      preExpenses = parsed.preExpenses;
+      awayExpenses = parsed.awayExpenses;
+      tripItems = parsed.tripItems;
+      nextId = parsed.nextId || 5000;
+      if (parsed.settings) {
+        Object.entries(parsed.settings).forEach(([id, val]) => {
+          const el = document.getElementById(id);
+          if (el) el.value = val;
+        });
+      }
+      renderAll();
+      recalc();
+      const ind = document.getElementById('save-indicator');
+      ind.textContent = 'Imported ✓';
+      ind.classList.add('show');
+      setTimeout(() => { ind.classList.remove('show'); ind.textContent = 'Saved ✓'; }, 2000);
+    } catch(err) {
+      alert('Could not read file — make sure it\'s a valid export from this tracker.');
+    }
+    // Reset input so same file can be re-imported if needed
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ─── Settings listeners ───────────────────────────────────────────────────────
+document.querySelectorAll('#ft-income, #current-savings, #leave-hours, #hourly-rate, #departure-date, #return-date, #first-pay-date').forEach(el => {
+  el.addEventListener('input', () => { recalc(); debouncedSave(); });
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+loadState();
+renderAll();
+recalc();
+</script>
+</body>
+</html>
